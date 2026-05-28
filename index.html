@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>釋迦漂漂河 🍈🚣 - 文物篇(完美挑戰版)</title>
+<title>稅浪漂漂河 🚣</title>
 
 <style>
     body { 
@@ -14,13 +14,34 @@
         position: fixed;
         width: 100%;
         height: 100%;
-        touch-action: none;
-        -webkit-user-select: none;
+        touch-action: none; 
+        -webkit-user-select: none; 
         user-select: none;
     }
     canvas { display: block; background: transparent; }
 
-    /* 置頂整排顯示分數與生命，手機上不擋題 */
+    /* 遊戲首頁說明畫面 */
+    #startScreen {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(40, 50, 40, 0.85); z-index: 200;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        color: white; text-align: center;
+    }
+    .start-box {
+        background: rgba(255, 255, 255, 0.95); color: #333;
+        padding: 25px; border-radius: 20px; width: 80%; max-width: 450px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 5px solid #58b9ff;
+    }
+    .start-box h1 { margin-top: 0; color: #2e7d32; font-size: 30px; }
+    .start-box ul { text-align: left; font-size: 15px; line-height: 1.6; margin: 15px 0; padding-left: 20px; }
+    .start-box ul li { margin-bottom: 8px; }
+    .btn-start {
+        font-size: 22px; padding: 12px 35px; background: #58b9ff; color: white;
+        border: none; border-radius: 15px; font-weight: bold; cursor: pointer;
+        box-shadow: 0 5px 10px rgba(0,0,0,0.2); display: inline-block;
+    }
+
+    /* 手機版頂部 UI 排版 */
     #ui {
         position: absolute; top: 10px; left: 5%; width: 90%;
         color: black; font-size: 18px; font-weight: bold; z-index: 10;
@@ -28,7 +49,7 @@
         text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
-    /* 題目顯示區域：向下調整，絕對不與 UI 重疊 */
+    /* 題目視窗 */
     #questionDisplay {
         position: absolute; top: 75px; left: 50%; transform: translateX(-50%);
         width: 85%; background: rgba(255, 255, 255, 0.95);
@@ -37,53 +58,63 @@
         display: none; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
 
-    /* 遊戲結束或獲勝的彈出大字 */
-    #messageBox {
+    /* 每題答對或答錯的即時回饋彈窗 */
+    #feedbackDisplay {
+        position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+        padding: 15px 30px; font-size: 24px; font-weight: bold; color: white;
+        border-radius: 15px; display: none; z-index: 80; text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .correct-bg { background: rgba(40, 167, 69, 0.9); border: 3px solid #7bf199; }
+    .wrong-bg { background: rgba(220, 53, 69, 0.9); border: 3px solid #ff8894; }
+
+    /* 遊戲結束的大彈窗 */
+    #message {
         position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        color: white; font-size: 32px; text-shadow: 2px 2px 0 #000;
+        color: white; font-size: 36px; text-shadow: 2px 2px 0 #000;
         text-align: center; display: none; z-index: 100;
-        background: rgba(0,0,0,0.85); padding: 30px; border-radius: 20px;
-        width: 75%; max-width: 400px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.7); padding: 30px; border-radius: 20px;
+        width: 70%;
     }
 
-    .btn-retry {
-        font-size: 20px; padding: 10px 24px; margin-top: 20px;
-        border: none; border-radius: 12px; cursor: pointer;
-        background: #58b9ff; color: white; font-weight: bold;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    }
-
-    /* 右下角備註保留 */
-    #disclaimer {
-        position: absolute; bottom: 10px; right: 15px; color: #333;
-        font-size: 12px; z-index: 10; font-weight: bold;
-        background: rgba(255, 255, 255, 0.5); padding: 4px 10px; border-radius: 5px;
-    }
-
-    /* 電腦與平板等大螢幕進行自動 UI 放大 */
     @media (min-width: 768px) {
         #ui { position: absolute; top: 20px; left: 20px; width: auto; font-size: 28px; padding: 10px 20px; text-align: left; }
         #questionDisplay { top: 30px; font-size: 26px; width: 70%; padding: 15px; }
-        #messageBox { font-size: 50px; max-width: 600px; }
+        #feedbackDisplay { font-size: 36px; padding: 20px 40px; }
+        #message { font-size: 50px; }
+        .start-box h1 { font-size: 38px; }
+        .start-box ul { font-size: 18px; }
     }
 </style>
 </head>
 
 <body>
 
+<div id="startScreen">
+    <div class="start-box">
+        <h1>稅浪漂漂河 🚣</h1>
+        <hr style="border: 0; height: 1px; background: #ccc;">
+        <ul>
+            <li><strong>🎮 操控方式：</strong>電腦請用鍵盤左右鍵；手機平板請長按畫面左半邊或右半邊控制移動。</li>
+            <li><strong>🏆 過關條件：</strong>成功正確回答 <strong>3 題</strong> 稅務挑戰。</li>
+            <li><strong>💔 失敗條件：</strong>生命值（❤️）共有 3 點，答錯或時間截止時未停在正確河道，即扣除 1 點。</li>
+            <li><strong>💡 貼心提示：</strong>可以直接用身體去撞正確的文物，或是在文物掉到底部前，將釋迦寶寶開到正確的河道上待命結算！</li>
+        </ul>
+        <button class="btn-start" onclick="startGame()">開始遊戲</button>
+    </div>
+</div>
+
 <div id="ui">
-    ❤️ 生命：<span id="hp">3</span> &nbsp;&nbsp;&nbsp;&nbsp; 🏆 成功修復：<span id="correctCount">0</span> / 3
+    ❤️ 生命：<span id="hp">3</span> &nbsp;&nbsp;&nbsp;&nbsp; 🏆 成功：<span id="correctCount">0</span> / 3
 </div>
 
 <div id="questionDisplay"></div>
+<div id="feedbackDisplay"></div>
 
-<div id="messageBox">
+<div id="message">
     <span id="msgText"></span><br>
-    <button class="btn-retry" onclick="location.reload()">重新開始</button>
+    <button onclick="location.reload()" style="font-size:20px; padding:10px 20px; margin-top:15px; cursor:pointer; background:#58b9ff; color:white; border:none; border-radius:12px; font-weight:bold;">重新開始</button>
 </div>
-
-<div id="disclaimer">行動裝置：按住畫面左/右半邊控制移動</div>
 
 <canvas id="gameCanvas"></canvas>
 
@@ -91,19 +122,15 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// 全域河道定位變數
+// 宣告核心變數
 let riverWidth, riverLeft, riverRight, laneWidth;
-
-// 1. 遊戲核心狀態
 let hp = 3;
 let currentCorrectCount = 0;
-let gameRunning = true;
+let gameRunning = false;       
+let gameStarted = false;       
 let isAnswering = false;
-let activeOptions = [];
-const keys = {};
-let touchX = null;
+let isShowingFeedback = false; 
 
-// 2. 圖片素材載入
 const bg = new Image(); bg.src = "background_new.png"; 
 const playerImg = new Image(); playerImg.src = "character.png";
 
@@ -114,58 +141,77 @@ const artifactImages = artifactSrcs.map(src => {
     return img;
 });
 
-// 3. 釋迦寶寶物件定義
+// 建立玩家物件
 const player = { x: 0, y: 0, width: 110, height: 110, speed: 14, vx: 0 };
 
-// 4. 自動適應螢幕大小與河道寬度調整（手機版調窄留背景）
+// 重新編排：確保在 player 建立後，再執行計算寬度的 resizeCanvas
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
     if (window.innerWidth < 768) {
-        // 手機直螢幕：河道只佔 75%，左右各留 12.5% 露出鮮豔背景
         riverWidth = window.innerWidth * 0.75; 
+        laneWidth = riverWidth / 4;
         player.width = Math.min(laneWidth * 0.85, 95) || 90;
         player.height = Math.min(laneWidth * 0.85, 95) || 90;
     } else {
-        // 平板與電腦：最大維持 800px 寬
         riverWidth = Math.min(window.innerWidth * 0.8, 800); 
-        player.width = 130;
-        player.height = 130;
+        laneWidth = riverWidth / 4;
+        player.width = 120;
+        player.height = 120;
     }
     
     riverLeft = (canvas.width - riverWidth) / 2;
     riverRight = riverLeft + riverWidth;
-    laneWidth = riverWidth / 4;
 
-    player.y = canvas.height - (player.height + 25);
+    if(player) {
+        player.y = canvas.height - (player.height + 25);
+    }
 }
 
-// 預先將玩家置中
-player.x = window.innerWidth / 2 - (player.width / 2);
+// 初始化位置與視窗綁定
 resizeCanvas();
+player.x = window.innerWidth / 2 - (player.width / 2);
 window.addEventListener('resize', resizeCanvas);
 
-// 5. 題庫系統
 const questions = [
     { q:"雲端發票的好處是？", a:["容易遺失","可自動對獎","要付費","不能存手機"], correct:1 },
     { q:"哪一個是地方稅？", a:["關稅","貨物稅","房屋稅","證交稅"], correct:2 },
-    { q:"使用牌照稅與什麼有關？", a:["汽機車","冰箱","手機","股票"], correct:0 }
+    { q:"使用牌照稅的開徵期間？", a:["4/1~4/30","5/1~5/31","10/1~10/31","11/1~11/30"], correct:0 },
+    { q:"房屋稅的納稅義務基準日是哪一天？", a:["1月1日","2月末日","3月22日","8月31日"], correct:1 },
+    { q:"地價稅的納稅義務基準日是哪一天？", a:["3月22日","8月31日","9月22日","11月1日"], correct:1 },
+    { q:"全國單一自住房屋，稅率是多少？", a:["1%","1.2%","1.5%","2%"], correct:0 },
+    { q:"房屋稅2.0新制，自住房屋增訂戶籍登記之對象可以是誰？", a:["本人","配偶","直系親屬","以上皆是"], correct:3 },
+    { q:"下列何者不能代收稅款?", a:["本國銀行","農會信用部","郵局","便利商店(限額3萬元)"], correct:2 },
+    { q:"同一納稅義務人於同一縣市的使用牌照稅繳款書，最多可申請幾張合併成一張?", a:["3張","5張","7張","10張"], correct:1 },
+    { q:"若符合地價稅減免及特別稅率應於何時前提出申請，才可於當年度適用？？", a:["2月末日","3月22日","8月31日","9月22日"], correct:3 },
 ];
 
-// 6. 出題觸發邏輯
+let activeOptions = [];
+const keys = {};
+let touchX = null; 
+let currentCorrectLane = -1; 
+
+// 開始遊戲按鈕觸發函式
+function startGame() {
+    document.getElementById("startScreen").style.display = "none"; 
+    gameRunning = true;  
+    gameStarted = true;  
+    gameLoop();          
+    setInterval(spawnQuestion, 2500); 
+}
+
 function spawnQuestion() {
-    if (isAnswering || !gameRunning) return;
+    if (!gameStarted || isAnswering || !gameRunning || isShowingFeedback) return; 
     isAnswering = true;
-    
     let currentQ = questions[Math.floor(Math.random() * questions.length)];
     const qBox = document.getElementById("questionDisplay");
     qBox.innerText = "⭐ 題目：" + currentQ.q;
     qBox.style.display = "block";
 
+    currentCorrectLane = currentQ.correct; 
     activeOptions = [];
     let objSize = laneWidth * 0.75; 
-    
     for (let i = 0; i < 4; i++) {
         activeOptions.push({
             x: riverLeft + (i * laneWidth) + (laneWidth/2 - objSize/2),
@@ -174,35 +220,38 @@ function spawnQuestion() {
             height: objSize,
             img: artifactImages[i % artifactImages.length],
             text: currentQ.a[i],
-            isCorrect: (i === currentQ.correct)
+            isCorrect: (i === currentQ.correct),
+            laneIndex: i
         });
     }
 }
 
-// 7. 渲染河道、泳池線與發光格
+function getPlayerLane() {
+    let playerCenterX = player.x + player.width / 2;
+    let lane = Math.floor((playerCenterX - riverLeft) / laneWidth);
+    if (lane < 0) lane = 0;
+    if (lane > 3) lane = 3;
+    return lane;
+}
+
 function drawGameScene() {
-    // 繪製最底層完整鮮豔底圖
     ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
 
-    // 僅在河道內畫上水流色與半透明遮罩
     ctx.fillStyle = "rgba(100, 220, 255, 0.25)"; 
     ctx.fillRect(riverLeft, 0, riverWidth, canvas.height);
     ctx.fillStyle = "rgba(255, 255, 255, 0.55)"; 
     ctx.fillRect(riverLeft, 0, riverWidth, canvas.height);
 
-    // 計算玩家中央點落在第幾條賽道
-    let playerLane = Math.floor((player.x + player.width/2 - riverLeft) / laneWidth);
+    let playerLane = getPlayerLane();
 
     for (let i = 0; i <= 4; i++) {
         let lx = riverLeft + (i * laneWidth);
         
-        // 玩家所在格子高亮發光
         if (i === playerLane && i < 4) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
             ctx.fillRect(lx, 0, laneWidth, canvas.height);
         }
 
-        // 畫白色虛線泳池分隔線
         ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
         ctx.setLineDash([10, 10]);
         ctx.lineWidth = 2.5;
@@ -211,13 +260,17 @@ function drawGameScene() {
         ctx.lineTo(lx, canvas.height);
         ctx.stroke();
     }
-    ctx.setLineDash([]); // 還原實線設定
+    ctx.setLineDash([]);
 }
 
-// 8. 選項向下滾動與碰撞作答判定
 function updateOptions(){
+    if (isShowingFeedback) return; 
+
+    let triggeredTouch = false;
+    let touchedCorrect = false;
+
     activeOptions.forEach((o) => {
-        o.y += 2.2; // 調整下落的緩慢速度
+        o.y += 2.2; 
         ctx.drawImage(o.img, o.x, o.y, o.width, o.height);
         
         ctx.fillStyle = "black";
@@ -226,42 +279,67 @@ function updateOptions(){
         ctx.textAlign = "center";
         ctx.fillText(o.text, o.x + o.width/2, o.y + o.height + 22);
 
-        // 碰撞判定
         if(
             player.x + 10 < o.x + o.width &&
             player.x + player.width - 10 > o.x &&
             player.y < o.y + o.height &&
             player.y + player.height > o.y
         ){
-            checkResult(o.isCorrect);
+            triggeredTouch = true;
+            touchedCorrect = o.isCorrect;
         }
     });
 
-    // 如果大家都掉出畫面，沒撞到就清空重新等下一題
+    if (triggeredTouch) {
+        checkResult(touchedCorrect);
+        return;
+    }
+
     if(activeOptions.length > 0 && activeOptions[0].y > canvas.height) {
-        isAnswering = false;
-        activeOptions = [];
-        document.getElementById("questionDisplay").style.display = "none";
+        let playerCurrentLane = getPlayerLane(); 
+        if (playerCurrentLane === currentCorrectLane) {
+            checkResult(true);  
+        } else {
+            checkResult(false); 
+        }
     }
 }
 
-// 9. 作答結果判定
 function checkResult(isRight) {
+    if (isShowingFeedback) return; 
+    isShowingFeedback = true;
+
+    const feedbackBox = document.getElementById("feedbackDisplay");
     if(isRight) {
         currentCorrectCount++;
-        if(currentCorrectCount >= 3) endGame("修復成功！🎉");
+        feedbackBox.innerText = "恭喜回答正確🤗";
+        feedbackBox.className = "feedbackDisplay correct-bg";
     } else {
         hp--;
-        if(hp <= 0) endGame("修復失敗 😭");
+        feedbackBox.innerText = "回答錯誤，再想想🫨";
+        feedbackBox.className = "feedbackDisplay wrong-bg";
     }
-    isAnswering = false;
-    activeOptions = [];
-    document.getElementById("questionDisplay").style.display = "none";
+    
     document.getElementById("hp").innerText = hp;
     document.getElementById("correctCount").innerText = currentCorrectCount;
+    document.getElementById("questionDisplay").style.display = "none";
+    feedbackBox.style.display = "block";
+
+    setTimeout(() => {
+        feedbackBox.style.display = "none";
+        isShowingFeedback = false;
+        isAnswering = false;
+        activeOptions = [];
+        currentCorrectLane = -1;
+
+        if (currentCorrectCount >= 3) {
+            endGame("修復成功！✨");
+        } else if (hp <= 0) {
+            endGame("修復失敗 😭");
+        }
+    }, 1200);
 }
 
-// 10. 平滑移動邏輯 (相容鍵盤與觸控)
 function handlePlayerMovement() {
     let moveLeft = false;
     let moveRight = false;
@@ -276,7 +354,7 @@ function handlePlayerMovement() {
 
     if (moveLeft) player.vx = -player.speed;
     else if (moveRight) player.vx = player.speed;
-    else player.vx *= 0.6; // 0.6 煞車阻力，讓釋迦寶寶更好停下來
+    else player.vx *= 0.6; 
 
     player.x += player.vx;
     
@@ -284,23 +362,16 @@ function handlePlayerMovement() {
     if(player.x > riverRight - player.width) player.x = riverRight - player.width;
 }
 
-// 11. 遊戲主迴圈
 function gameLoop(){
     if(!gameRunning) return;
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    
     drawGameScene();
     handlePlayerMovement();
-    
-    // 畫出釋迦寶寶
     ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
-    
     if(isAnswering) updateOptions();
-    
     requestAnimationFrame(gameLoop);
 }
 
-// 12. 鍵盤與觸控事件綁定
 window.addEventListener("keydown", (e) => keys[e.key] = true);
 window.addEventListener("keyup", (e) => keys[e.key] = false);
 
@@ -308,18 +379,11 @@ window.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; },
 window.addEventListener("touchmove", (e) => { touchX = e.touches[0].clientX; }, {passive: true});
 window.addEventListener("touchend", () => { touchX = null; });
 
-// 每 4 秒自動判定並觸發一次出題流程
-setInterval(spawnQuestion, 4000);
-
-// 13. 遊戲結束處理
 function endGame(text){
     gameRunning = false;
+    document.getElementById("message").style.display = "block";
     document.getElementById("msgText").innerText = text;
-    document.getElementById("messageBox").style.display = "block";
 }
-
-// 啟動遊戲
-gameLoop();
 </script>
 </body>
 </html>
