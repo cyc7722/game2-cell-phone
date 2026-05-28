@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>釋迦漂漂河 - 完美視角優化版 🍈🚣</title>
+
+<style>
+    body { 
+        margin: 0; 
+        overflow: hidden; 
+        background: #e2f5d3; 
+        font-family: "Microsoft JhengHei";
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    canvas { display: block; background: transparent; }
+
+    /* --- 修改點 1：手機版優先的 UI 排版 --- */
+    #ui {
+        position: absolute; top: 10px; left: 5%; width: 90%;
+        color: black; font-size: 18px; font-weight: bold; z-index: 10;
+        background: rgba(255, 255, 255, 0.85); padding: 8px 0; border-radius: 10px;
+        text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* 題目視窗：往下移動，確保不與頂部 UI 重疊 */
+    #questionDisplay {
+        position: absolute; top: 75px; left: 50%; transform: translateX(-50%);
+        width: 85%; background: rgba(255, 255, 255, 0.95);
+        border: 4px solid #58b9ff; border-radius: 15px; padding: 10px;
+        text-align: center; font-size: 16px; font-weight: bold;
+        display: none; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    #message {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        color: white; font-size: 36px; text-shadow: 2px 2px 0 #000;
+        text-align: center; display: none; z-index: 100;
+        background: rgba(0,0,0,0.7); padding: 30px; border-radius: 20px;
+        width: 70%;
+    }
+
+    /* 當螢幕寬度大於 768px（平板與電腦）時，恢復原本的側邊排版與大字體 */
+    @media (min-width: 768px) {
+        #ui { position: absolute; top: 20px; left: 20px; width: auto; font-size: 28px; padding: 10px 20px; text-align: left; }
+        #questionDisplay { top: 30px; font-size: 26px; width: 70%; padding: 15px; }
+        #message { font-size: 50px; }
+    }
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+    ❤️ 生命：<span id="hp">3</span> &nbsp;&nbsp;&nbsp;&nbsp; 🏆 成功：<span id="correctCount">0</span> / 3
+</div>
+
+<div id="questionDisplay"></div>
+
+<div id="message">
+    <span id="msgText"></span><br>
+    <button onclick="location.reload()" style="font-size:20px; padding:10px 20px; margin-top:15px; cursor:pointer; background:#58b9ff; color:white; border:none; border-radius:12px; font-weight:bold;">重新開始</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let riverWidth, riverLeft, riverRight, laneWidth;
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // --- 修改點 2：調小手機版河道比例，留出兩側背景 ---
+    if (window.innerWidth < 768) {
+        // 手機版：河道只佔螢幕寬度的 75%，保留兩邊各 12.5% 的美麗背景
+        riverWidth = window.innerWidth * 0.75; 
+    } else {
+        // 平板與電腦：最大維持 800px 寬
+        riverWidth = Math.min(window.innerWidth * 0.8, 800); 
+    }
+    
+    riverLeft = (canvas.width - riverWidth) / 2;
+    riverRight = riverLeft + riverWidth;
+    laneWidth = riverWidth / 4;
+
+    if(player) {
+        // 配合手機螢幕微調娃娃大小（河道變窄，娃娃也等比例縮小一點，比較好躲）
+        if(window.innerWidth < 768) {
+            player.width = Math.min(laneWidth * 0.85, 95);
+            player.height = Math.min(laneWidth * 0.85, 95);
+        } else {
+            player.width = 120;
+            player.height = 120;
+        }
+        player.y = canvas.height - (player.height + 25);
+    }
+}
+
+let hp = 3;
+let currentCorrectCount = 0;
+let gameRunning = true;
+let isAnswering = false;
+
+const bg = new Image(); bg.src = "background_new.png"; 
+const playerImg = new Image(); playerImg.src = "character.png";
+
+const artifactSrcs = ["1.png", "2.png", "3.png", "4.png"];
+const artifactImages = artifactSrcs.map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+});
+
+const player = { x: 0, y: 0, width: 110, height: 110, speed: 14, vx: 0 };
+player.x = window.innerWidth / 2 - (player.width / 2);
+
+const questions = [
+    { q:"雲端發票的好處是？", a:["容易遺失","可自動對獎","要付費","不能存手機"], correct:1 },
+    { q:"哪一個是地方稅？", a:["關稅","貨物稅","房屋稅","證交稅"], correct:2 },
+    { q:"使用牌照稅與什麼有關？", a:["汽機車","冰箱","手機","股票"], correct:0 }
+];
+
+let activeOptions = [];
+const keys = {};
+let touchX = null;
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function spawnQuestion() {
+    if (isAnswering || !gameRunning) return;
+    isAnswering = true;
+    let currentQ = questions[Math.floor(Math.random() * questions.length)];
+    const qBox = document.getElementById("questionDisplay");
+    qBox.innerText = "⭐ 題目：" + currentQ.q;
+    qBox.style.display = "block";
+
+    activeOptions = [];
+    // 讓選項文物的尺寸完美適應變窄後的格子
+    let objSize = laneWidth * 0.75; 
+    for (let i = 0; i < 4; i++) {
+        activeOptions.push({
+            x: riverLeft + (i * laneWidth) + (laneWidth/2 - objSize/2),
+            y: -120,
+            width: objSize,
+            height: objSize,
+            img: artifactImages[i % artifactImages.length],
+            text: currentQ.a[i],
+            isCorrect: (i === currentQ.correct),
+            laneIndex: i
+        });
+    }
+}
+
+function drawGameScene() {
+    // 繪製完整底圖
+    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+    // 河道內專屬半透明水流色與霧面遮罩
+    ctx.fillStyle = "rgba(100, 220, 255, 0.25)"; 
+    ctx.fillRect(riverLeft, 0, riverWidth, canvas.height);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)"; 
+    ctx.fillRect(riverLeft, 0, riverWidth, canvas.height);
+
+    let playerLane = Math.floor((player.x + player.width/2 - riverLeft) / laneWidth);
+
+    for (let i = 0; i <= 4; i++) {
+        let lx = riverLeft + (i * laneWidth);
+        
+        if (i === playerLane && i < 4) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+            ctx.fillRect(lx, 0, laneWidth, canvas.height);
+        }
+
+        ctx.strokeStyle = "rgba(255, 2
