@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>釋迦漂漂河 - 翻船特效優化版 🍈🚣</title>
+<title>釋迦漂漂河 - 角色回饋精緻優化版 🍈🚣</title>
 
 <style>
     body { 
@@ -58,15 +58,24 @@
         display: none; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
 
-    /* 每題答對或答錯的即時回饋彈窗 */
+    /* 每題答對或答錯的即時回饋彈窗（新增內襯排版，容納上方的放大角色圖片） */
     #feedbackDisplay {
-        position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-        padding: 15px 30px; font-size: 24px; font-weight: bold; color: white;
-        border-radius: 15px; display: none; z-index: 80; text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);
+        padding: 20px 30px; z-index: 80; text-align: center;
+        box-shadow: 0 6px 25px rgba(0,0,0,0.4); border-radius: 20px;
+        display: none; width: 75%; max-width: 320px;
     }
-    .correct-bg { background: rgba(40, 167, 69, 0.9); border: 3px solid #7bf199; }
-    .wrong-bg { background: rgba(220, 53, 69, 0.9); border: 3px solid #ff8894; }
+    /* 答對與答錯的文字樣式 */
+    #feedbackText {
+        font-size: 22px; font-weight: bold; color: white; margin-top: 10px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+    /* 用於裝載動態變身釋迦寶寶圖片的容器 */
+    #feedbackAvatar {
+        width: 140px; height: 140px; object-fit: contain; margin: 0 auto 5px auto; display: block;
+    }
+    .correct-bg { background: rgba(40, 167, 69, 0.95); border: 4px solid #7bf199; }
+    .wrong-bg { background: rgba(220, 53, 69, 0.95); border: 4px solid #ff8894; }
 
     /* 遊戲結束的大彈窗 */
     #message {
@@ -80,7 +89,9 @@
     @media (min-width: 768px) {
         #ui { position: absolute; top: 20px; left: 20px; width: auto; font-size: 28px; padding: 10px 20px; text-align: left; }
         #questionDisplay { top: 30px; font-size: 26px; width: 70%; padding: 15px; }
-        #feedbackDisplay { font-size: 36px; padding: 20px 40px; }
+        #feedbackDisplay { width: 50%; max-width: 400px; padding: 25px 40px; }
+        #feedbackText { font-size: 30px; }
+        #feedbackAvatar { width: 180px; height: 180px; }
         #message { font-size: 50px; }
         .start-box h1 { font-size: 38px; }
         .start-box ul { font-size: 18px; }
@@ -95,7 +106,7 @@
         <h1>釋迦漂漂河 🍈🚣</h1>
         <hr style="border: 0; height: 1px; background: #ccc;">
         <ul>
-            <li><strong>🎮 操控方式：</strong>電腦請用鍵盤左右鍵；手機平板請長按畫面左半邊或右半邊控制移動。</li>
+            <li><strong>🎮 操控方式：</strong>電腦請用鍵盤左右鍵；手機平板請點擊畫面<strong>左半邊（向左跳格）</strong>或<strong>右半邊（向右跳格）</strong>控制移動。</li>
             <li><strong>🏆 過關條件：</strong>成功正確回答 <strong>3 題</strong> 稅務挑戰。</li>
             <li><strong>💔 失敗條件：</strong>生命值（❤️）共有 3 點，答錯或時間截止時未停在正確河道，即扣除 1 點。</li>
             <li><strong>💡 貼心提示：</strong>可以直接用身體去撞正確的文物，或是在文物掉到底部前，將釋迦寶寶開到正確的河道上待命結算！</li>
@@ -109,7 +120,11 @@
 </div>
 
 <div id="questionDisplay"></div>
-<div id="feedbackDisplay"></div>
+
+<div id="feedbackDisplay">
+    <img id="feedbackAvatar" src="character.png" alt="狀態圖">
+    <div id="feedbackText"></div>
+</div>
 
 <div id="message">
     <span id="msgText"></span><br>
@@ -130,14 +145,14 @@ let gameRunning = false;
 let gameStarted = false;       
 let isAnswering = false;
 let isShowingFeedback = false; 
-let showCorrectLaneHighlight = false; // 控制正確答案河道是否發光的開關
+let showCorrectLaneHighlight = false; 
 
 const bg = new Image(); bg.src = "background_new.png"; 
 
-// 載入釋迦寶寶的兩種狀態圖片
+// 圖片載入定義
 const playerNormalImg = new Image(); playerNormalImg.src = "character.png";
 const playerFailImg = new Image(); playerFailImg.src = "character_fail.png";
-// 預設當前使用的圖片為正常劃船圖
+const playerSuccessImg = new Image(); playerSuccessImg.src = "character_success.png"; 
 let playerImg = playerNormalImg; 
 
 const artifactSrcs = ["1.png", "2.png", "3.png", "4.png"];
@@ -147,8 +162,8 @@ const artifactImages = artifactSrcs.map(src => {
     return img;
 });
 
-// 建立玩家物件
-const player = { x: 0, y: 0, width: 110, height: 110, speed: 14, vx: 0 };
+// 建立玩家物件（使用格子精準定位系統，預設初始在軌道 1）
+const player = { currentLane: 1, x: 0, y: 0, width: 110, height: 110, speed: 14, vx: 0 };
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -171,15 +186,20 @@ function resizeCanvas() {
 
     if(player) {
         player.y = canvas.height - (player.height + 25);
+        alignPlayerToLane();
     }
+}
+
+function alignPlayerToLane() {
+    player.x = riverLeft + (player.currentLane * laneWidth) + (laneWidth / 2 - player.width / 2);
 }
 
 // 初始化位置與視窗綁定
 resizeCanvas();
-player.x = window.innerWidth / 2 - (player.width / 2);
 window.addEventListener('resize', resizeCanvas);
 
-const questions = [
+// 原始題庫
+const baseQuestions = [
     { q:"雲端發票的好處是？", a:["容易遺失","可自動對獎","要付費","不能存手機"], correct:1 },
     { q:"哪一個是地方稅？", a:["關稅","貨物稅","房屋稅","證交稅"], correct:2 },
     { q:"使用牌照稅的開徵期間？", a:["4/1~4/30","5/1~5/31","10/1~10/31","11/1~11/30"], correct:0 },
@@ -192,9 +212,11 @@ const questions = [
     { q:"若符合地價稅減免及特別稅率應於何時前提出申請，才可於當年度適用？？", a:["2月末日","3月22日","8月31日","9月22日"], correct:3 },
 ];
 
+// 運作題庫：實作不重複抽題的動態陣列
+let availableQuestions = [...baseQuestions];
+
 let activeOptions = [];
 const keys = {};
-let touchX = null; 
 let currentCorrectLane = -1; 
 
 function startGame() {
@@ -208,8 +230,15 @@ function startGame() {
 function spawnQuestion() {
     if (!gameStarted || isAnswering || !gameRunning || isShowingFeedback) return; 
     isAnswering = true;
-    showCorrectLaneHighlight = false; // 重設發光狀態
-    let currentQ = questions[Math.floor(Math.random() * questions.length)];
+    showCorrectLaneHighlight = false; 
+
+    if (availableQuestions.length === 0) {
+        availableQuestions = [...baseQuestions]; 
+    }
+    
+    let randomIndex = Math.floor(Math.random() * availableQuestions.length);
+    let currentQ = availableQuestions.splice(randomIndex, 1)[0];
+
     const qBox = document.getElementById("questionDisplay");
     qBox.innerText = "⭐ 題目：" + currentQ.q;
     qBox.style.display = "block";
@@ -232,11 +261,7 @@ function spawnQuestion() {
 }
 
 function getPlayerLane() {
-    let playerCenterX = player.x + player.width / 2;
-    let lane = Math.floor((playerCenterX - riverLeft) / laneWidth);
-    if (lane < 0) lane = 0;
-    if (lane > 3) lane = 3;
-    return lane;
+    return player.currentLane;
 }
 
 function drawGameScene() {
@@ -252,15 +277,13 @@ function drawGameScene() {
     for (let i = 0; i <= 4; i++) {
         let lx = riverLeft + (i * laneWidth);
         
-        // 正常狀態下玩家所在河道發微白光
         if (i === playerLane && i < 4 && !showCorrectLaneHighlight) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
             ctx.fillRect(lx, 0, laneWidth, canvas.height);
         }
 
-        // 答錯時，讓正確答案的那一條河道發出顯眼的黃色光芒
         if (showCorrectLaneHighlight && i === currentCorrectLane) {
-            ctx.fillStyle = "rgba(255, 235, 59, 0.45)"; // 鮮艷的黃色透明遮罩
+            ctx.fillStyle = "rgba(255, 235, 59, 0.45)"; 
             ctx.fillRect(lx, 0, laneWidth, canvas.height);
         }
 
@@ -276,10 +299,9 @@ function drawGameScene() {
 }
 
 function updateOptions(){
-    // 修改點 1：即使在結算畫面中 (isShowingFeedback 為 true)，我們仍然繼續繪製選項，只是不讓它們往下掉或觸發新碰撞
     activeOptions.forEach((o) => {
         if (!isShowingFeedback) {
-            o.y += 2.2; // 沒在結算時，正常下落
+            o.y += 2.2; 
         }
         
         ctx.drawImage(o.img, o.x, o.y, o.width, o.height);
@@ -290,7 +312,6 @@ function updateOptions(){
         ctx.textAlign = "center";
         ctx.fillText(o.text, o.x + o.width/2, o.y + o.height + 22);
 
-        // 只有非結算狀態才做碰撞檢查
         if(!isShowingFeedback &&
             player.x + 10 < o.x + o.width &&
             player.x + player.width - 10 > o.x &&
@@ -318,28 +339,29 @@ function checkResult(isRight) {
     isShowingFeedback = true;
 
     const feedbackBox = document.getElementById("feedbackDisplay");
+    const feedbackText = document.getElementById("feedbackText");
+    const feedbackAvatar = document.getElementById("feedbackAvatar");
+
     if(isRight) {
         currentCorrectCount++;
-        feedbackBox.innerText = "恭喜回答正確🤗";
-        feedbackBox.className = "feedbackDisplay correct-bg";
-        playerImg = playerNormalImg; 
+        feedbackText.innerText = "恭喜回答正確🤗";
+        feedbackBox.className = "correct-bg";
+        playerImg = playerSuccessImg; 
+        feedbackAvatar.src = "character_success.png"; // 視窗內同步換上答對舉旗圖
     } else {
         hp--;
-        feedbackBox.innerText = "回答錯誤，再想想🫨";
-        feedbackBox.className = "feedbackDisplay wrong-bg";
-        
-        playerImg = playerFailImg; // 更換成落水翻船驚嚇圖
-        showCorrectLaneHighlight = true; // 開啟正確河道發光
+        feedbackText.innerText = "回答錯誤，再想想🫨";
+        feedbackBox.className = "wrong-bg";
+        playerImg = playerFailImg; 
+        feedbackAvatar.src = "character_fail.png";    // 視窗內同步換上答錯驚嚇圖
+        showCorrectLaneHighlight = true; 
     }
     
     document.getElementById("hp").innerText = hp;
     document.getElementById("correctCount").innerText = currentCorrectCount;
-    
-    // 修改點 1（續）：不要在這裡立刻隱藏頂部題目，保留讓民眾一併觀看
     feedbackBox.style.display = "block";
 
     setTimeout(() => {
-        // 1.2 秒結束後，才同步隱藏題目、回饋框、清空河道選項
         document.getElementById("questionDisplay").style.display = "none";
         feedbackBox.style.display = "none";
         
@@ -347,7 +369,7 @@ function checkResult(isRight) {
         isAnswering = false;
         activeOptions = [];
         showCorrectLaneHighlight = false; 
-        playerImg = playerNormalImg;      // 變回正常狀態
+        playerImg = playerNormalImg; 
         currentCorrectLane = -1;
 
         if (currentCorrectCount >= 3) {
@@ -367,22 +389,18 @@ function handlePlayerMovement() {
     let moveLeft = false;
     let moveRight = false;
 
-    if (keys["ArrowLeft"] || keys["a"] || keys["A"]) moveLeft = true;
-    if (keys["ArrowRight"] || keys["d"] || keys["D"]) moveRight = true;
+    if (keys["ArrowLeft"] || keys["a"] || keys["A"]) { moveLeft = true; keys["ArrowLeft"] = keys["a"] = keys["A"] = false; }
+    if (keys["ArrowRight"] || keys["d"] || keys["D"]) { moveRight = true; keys["ArrowRight"] = keys["d"] = keys["D"] = false; }
 
-    if (touchX !== null) {
-        if (touchX < window.innerWidth / 2) moveLeft = true;
-        else moveRight = true;
+    if (moveLeft && player.currentLane > 0) {
+        player.currentLane--;
+    }
+    if (moveRight && player.currentLane < 3) {
+        player.currentLane++;
     }
 
-    if (moveLeft) player.vx = -player.speed;
-    else if (moveRight) player.vx = player.speed;
-    else player.vx *= 0.6; 
-
-    player.x += player.vx;
-    
-    if(player.x < riverLeft) player.x = riverLeft;
-    if(player.x > riverRight - player.width) player.x = riverRight - player.width;
+    let targetX = riverLeft + (player.currentLane * laneWidth) + (laneWidth / 2 - player.width / 2);
+    player.x += (targetX - player.x) * 0.4; 
 }
 
 function gameLoop(){
@@ -391,16 +409,14 @@ function gameLoop(){
     drawGameScene();
     handlePlayerMovement();
     
-    // 修改點 2：當圖片為翻船圖片 (playerFailImg) 時，等比例將寬高同步放大 1.25 倍，解決圖片縮在格子裡被擠壓的感覺
-    if (playerImg === playerFailImg) {
+    // --- 比例校正優化點：將 character_success 與 character_fail 同步加入 1.25 倍等比例正方形擴張機制，防擠壓 ---
+    if (playerImg === playerFailImg || playerImg === playerSuccessImg) {
         let expandedWidth = player.width * 1.25;
         let expandedHeight = player.height * 1.25;
-        // 稍微往左與往上偏位移動，使放大後的翻船圖依然維持在視覺中心點
         let drawX = player.x - (expandedWidth - player.width) / 2;
         let drawY = player.y - (expandedHeight - player.height) / 2;
         ctx.drawImage(playerImg, drawX, drawY, expandedWidth, expandedHeight);
     } else {
-        // 正常划船狀態
         ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
     }
     
@@ -409,11 +425,20 @@ function gameLoop(){
 }
 
 window.addEventListener("keydown", (e) => keys[e.key] = true);
-window.addEventListener("keyup", (e) => keys[e.key] = false);
 
-window.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, {passive: true});
-window.addEventListener("touchmove", (e) => { touchX = e.touches[0].clientX; }, {passive: true});
-window.addEventListener("touchend", () => { touchX = null; });
+// 手機版精準格點控制
+window.addEventListener("touchstart", (e) => {
+    if (!gameStarted || !gameRunning || isShowingFeedback) return;
+    let clickX = e.touches[0].clientX;
+    if (clickX < window.innerWidth / 2) {
+        if (player.currentLane > 0) player.currentLane--;
+    } else {
+        if (player.currentLane < 3) player.currentLane++;
+    }
+}, {passive: true});
+
+window.addEventListener("touchmove", (e) => {}, {passive: true});
+window.addEventListener("touchend", () => {});
 
 function endGame(text){
     gameRunning = false;
